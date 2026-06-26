@@ -309,6 +309,7 @@ export type SessionTranscriptWriteLockAccessorContext = {
     options: TranscriptMessageAppendOptions<TMessage>,
   ) => Promise<TranscriptMessageAppendResult<TMessage> | undefined>;
   readEvents: () => Promise<TranscriptEvent[]>;
+  replaceEvents: (events: readonly TranscriptEvent[]) => Promise<void>;
 };
 
 export type SessionTranscriptTurnUpdateMode = "inline" | "file-only" | "none";
@@ -2734,10 +2735,10 @@ async function resolveTranscriptTurnTarget(
     scope.sessionStore ??
     (scope.storePath
       ? Object.fromEntries(
-          listSessionEntries({ storePath: scope.storePath }).map(({ sessionKey, entry }) => [
-            sessionKey,
-            entry,
-          ]),
+          listSessionEntries({
+            storePath: scope.storePath,
+            ...(agentId ? { agentId } : {}),
+          }).map(({ sessionKey, entry }) => [sessionKey, entry]),
         )
       : undefined);
   const resolved = store ? resolveSessionStoreEntry({ store, sessionKey }) : undefined;
@@ -2799,6 +2800,7 @@ async function touchTranscriptTurnSessionEntry(params: {
     {
       sessionKey: params.target.sessionKey,
       storePath: params.scope.storePath,
+      ...(params.target.agentId ? { agentId: params.target.agentId } : {}),
     },
     (current) =>
       current.sessionId === params.target.sessionId
