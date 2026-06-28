@@ -2032,9 +2032,9 @@ export async function commitReplySessionInitialization(params: {
   const upserts: SessionEntryLifecycleUpsert[] = [
     {
       sessionKey: resolved.normalizedKey,
-      buildEntry: ({ store }) => {
+      buildEntry: ({ store: currentStore }) => {
         const commitResolved = resolveSessionStoreEntry({
-          store,
+          store: currentStore,
           sessionKey: params.sessionKey,
         });
         const commitEntry = commitResolved.existing;
@@ -2508,7 +2508,7 @@ async function persistExpectedSessionTranscriptTurn(
   const store =
     scope.sessionStore ??
     Object.fromEntries(
-      listSessionEntries({ storePath }).map(({ sessionKey, entry }) => [sessionKey, entry]),
+      listSessionEntries({ storePath }).map(({ sessionKey: entryKey, entry }) => [entryKey, entry]),
     );
   const resolved = resolveSessionStoreEntry({ store, sessionKey });
   const sessionFile = formatSqliteSessionFileMarker({
@@ -2878,7 +2878,7 @@ async function resolveTranscriptTurnTarget(
           listSessionEntries({
             storePath: scope.storePath,
             ...(agentId ? { agentId } : {}),
-          }).map(({ sessionKey, entry }) => [sessionKey, entry]),
+          }).map(({ sessionKey: entryKey, entry }) => [entryKey, entry]),
         )
       : undefined);
   const resolved = store ? resolveSessionStoreEntry({ store, sessionKey }) : undefined;
