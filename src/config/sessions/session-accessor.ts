@@ -1149,6 +1149,7 @@ export async function resolveSessionParentForkDecision(params: {
  * and optionally patches the canonical entry under one accessor operation.
  */
 export async function canonicalizeSessionEntryAliases(params: {
+  agentId?: string;
   storePath: string;
   target: SessionLifecycleStoreTarget;
   update?: (
@@ -1156,10 +1157,9 @@ export async function canonicalizeSessionEntryAliases(params: {
   ) => Promise<Partial<SessionEntry> | null> | Partial<SessionEntry> | null;
 }): Promise<CanonicalizeSessionEntryAliasesResult> {
   const store = Object.fromEntries(
-    listSessionEntries({ storePath: params.storePath }).map(({ sessionKey, entry }) => [
-      sessionKey,
-      entry,
-    ]),
+    listSessionEntries({ agentId: params.agentId, storePath: params.storePath }).map(
+      ({ sessionKey, entry }) => [sessionKey, entry],
+    ),
   );
   const targetKeys = normalizeTargetStoreKeys(params.target);
   const freshest = resolveFreshestTargetEntry(store, targetKeys);
@@ -1171,6 +1171,7 @@ export async function canonicalizeSessionEntryAliases(params: {
       } as SessionEntry)
     : cloneOptionalEntry(freshest?.entry);
   await applySessionEntryLifecycleMutation({
+    agentId: params.agentId,
     storePath: params.storePath,
     removals: targetKeys
       .filter((key) => key !== params.target.canonicalKey)
@@ -1237,8 +1238,9 @@ export async function createSessionEntryWithTranscript<TError = string>(
     | SessionEntryCreateWithTranscriptPrepareResult<TError>,
 ): Promise<SessionEntryCreateWithTranscriptResult<TError>> {
   const storePath = resolveAccessStorePath(scope);
+  const agentId = scope.agentId ?? resolveAgentIdFromSessionKey(scope.sessionKey);
   const store = Object.fromEntries(
-    listSessionEntries({ storePath }).map(({ sessionKey, entry }) => [sessionKey, entry]),
+    listSessionEntries({ agentId, storePath }).map(({ sessionKey, entry }) => [sessionKey, entry]),
   );
   const resolved = resolveSessionStoreEntry({ store, sessionKey: scope.sessionKey });
   const created = await createEntry({
@@ -1249,7 +1251,6 @@ export async function createSessionEntryWithTranscript<TError = string>(
     return { ok: false, error: created.error, phase: "entry" };
   }
 
-  const agentId = scope.agentId ?? resolveAgentIdFromSessionKey(scope.sessionKey);
   const sessionFile = formatSqliteSessionFileMarker({
     agentId,
     sessionId: created.entry.sessionId,
@@ -1281,6 +1282,7 @@ export async function createSessionEntryWithTranscript<TError = string>(
           sessionFile,
         };
   await applySessionEntryLifecycleMutation({
+    agentId,
     storePath,
     removals: resolved.legacyKeys.map((sessionKey) => ({ sessionKey })),
     upserts: [{ sessionKey: resolved.normalizedKey, entry }],
@@ -1630,13 +1632,14 @@ export async function restoreSessionFromCompactionCheckpoint(
 export async function applySessionPatchProjection<
   TFailure extends SessionPatchProjectionFailure,
 >(params: {
+  agentId?: string;
   storePath: string;
   resolveTarget: (snapshot: SessionPatchProjectionSnapshot) => SessionPatchProjectionTarget;
   project: (
     context: SessionPatchProjectionContext,
   ) => Promise<SessionPatchProjectionResult<TFailure>> | SessionPatchProjectionResult<TFailure>;
 }): Promise<SessionPatchProjectionResult<TFailure>> {
-  const entries = listSessionEntries({ storePath: params.storePath }).map(
+  const entries = listSessionEntries({ agentId: params.agentId, storePath: params.storePath }).map(
     ({ sessionKey, entry }) => ({
       entry: structuredClone(entry),
       sessionKey,
@@ -1656,6 +1659,7 @@ export async function applySessionPatchProjection<
     (target.candidateKeys ?? [target.primaryKey]).map((key) => key.trim()).filter(Boolean),
   );
   await applySessionEntryLifecycleMutation({
+    agentId: params.agentId,
     storePath: params.storePath,
     removals: candidateKeys
       .filter((sessionKey) => sessionKey !== target.primaryKey)
@@ -1780,6 +1784,7 @@ export async function deleteSessionEntryLifecycle(
 
 /** Applies exact entry lifecycle mutations and artifact cleanup at the storage boundary. */
 export async function applySessionEntryLifecycleMutation(params: {
+  agentId?: string;
   storePath: string;
   removals?: Iterable<SessionEntryLifecycleRemoval>;
   upserts?: Iterable<SessionEntryLifecycleUpsert>;
@@ -2750,11 +2755,16 @@ export function resolveSessionTranscriptReadTarget(
   }
   const storePath = resolveConcreteReadStorePath(scope.storePath);
   if (!storePath) {
-    const fileEntry = entrySessionFile?.startsWith("sqlite:") ? undefined : scope.sessionEntry;
+    const resolvedStorePath = resolveStorePath(getRuntimeConfig().session?.store, {
+      agentId,
+      env: scope.env,
+    });
     return {
       agentId,
-      sessionFile: resolveSessionFilePath(scope.sessionId, fileEntry, {
+      sessionFile: formatSqliteSessionFileMarker({
         agentId,
+        sessionId: scope.sessionId,
+        storePath: resolvedStorePath,
       }),
       sessionId: scope.sessionId,
       ...(scope.sessionKey ? { sessionKey: scope.sessionKey } : {}),
@@ -2766,7 +2776,10 @@ export function resolveSessionTranscriptReadTarget(
       : storePath
         ? resolveSessionStoreEntry({
             store: Object.fromEntries(
-              listSessionEntries({ storePath }).map(({ sessionKey, entry }) => [sessionKey, entry]),
+              listSessionEntries({ agentId, storePath }).map(({ sessionKey, entry }) => [
+                sessionKey,
+                entry,
+              ]),
             ),
             sessionKey: scope.sessionKey,
           })
