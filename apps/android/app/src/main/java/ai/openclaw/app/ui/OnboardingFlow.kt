@@ -1861,7 +1861,7 @@ private fun PermissionTopBar(onBack: () -> Unit) {
       title = { Text("Permissions", style = ClawTheme.type.section, color = ClawTheme.colors.text) },
       text = {
         Text(
-          "Choose what this phone can share with OpenClaw. You can change these later in Settings.",
+          "Only enable access you are comfortable letting OpenClaw use while this phone is connected. You can change these later in Settings.",
           style = ClawTheme.type.body,
           color = ClawTheme.colors.textMuted,
         )
@@ -2452,7 +2452,7 @@ private fun rememberPermissionState(
       },
       PermissionRowModel(
         "Camera",
-        "Share camera when approved",
+        "Capture photos and clips from this phone",
         Icons.Default.CameraAlt,
         cameraGranted,
         cameraPermissionRowStatusText(
@@ -2461,11 +2461,11 @@ private fun rememberPermissionState(
         ),
         ::requestCameraCapability,
       ),
-      PermissionRowModel("Location", "Use location when needed", Icons.Default.LocationOn, locationGranted) {
+      PermissionRowModel("Location", "Read this phone's location", Icons.Default.LocationOn, locationGranted) {
         request(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
       },
       if (photosAvailable) {
-        PermissionRowModel("Photos", "Attach photos and media", Icons.Default.Image, photosGranted) {
+        PermissionRowModel("Photos", "Read recent photos and media", Icons.Default.Image, photosGranted) {
           request(photosPermission)
         }
       } else {
@@ -2491,7 +2491,7 @@ private fun rememberPermissionState(
         null
       },
       if (smsAvailable) {
-        PermissionRowModel("SMS", "Send and read messages when approved", Icons.Default.Notifications, smsGranted) {
+        PermissionRowModel("SMS", "Read and send SMS messages", Icons.Default.Notifications, smsGranted) {
           request(Manifest.permission.SEND_SMS, Manifest.permission.READ_SMS)
         }
       } else {
