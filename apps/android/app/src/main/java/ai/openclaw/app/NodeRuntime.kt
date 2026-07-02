@@ -467,8 +467,11 @@ class NodeRuntime(
         micCapture.onGatewayConnectionChanged(true)
         scope.launch {
           subscribeOperatorSessionEvents()
+          // Onboarding waits on node approval state immediately after bootstrap
+          // handoff, before the broader dashboard refresh finishes.
+          refreshNodesDevicesFromGateway()
           refreshExecApprovalsFromGateway()
-          refreshHomeCanvasOverviewIfConnected()
+          refreshHomeCanvasOverviewIfConnected(refreshNodesDevices = false)
           if (voiceReplySpeakerLazy.isInitialized()) {
             voiceReplySpeaker.refreshConfig()
           }
@@ -798,7 +801,7 @@ class NodeRuntime(
     canvas.navigate("")
   }
 
-  fun refreshHomeCanvasOverviewIfConnected() {
+  fun refreshHomeCanvasOverviewIfConnected(refreshNodesDevices: Boolean = true) {
     if (!operatorConnected) {
       updateHomeCanvasState()
       return
@@ -810,7 +813,9 @@ class NodeRuntime(
       refreshCronFromGateway()
       refreshUsageFromGateway()
       refreshSkillsFromGateway()
-      refreshNodesDevicesFromGateway()
+      if (refreshNodesDevices) {
+        refreshNodesDevicesFromGateway()
+      }
       refreshChannelsFromGateway()
       refreshDreamingFromGateway()
       refreshHealthLogsFromGateway()
