@@ -636,12 +636,6 @@ fun OnboardingFlow(
           connectSettling = recoveryNowMs - connectAttemptStartedAtMs < GATEWAY_CONNECT_SETTLING_MS,
           connectTimedOut = recoveryNowMs - connectAttemptStartedAtMs >= GATEWAY_CONNECT_TIMEOUT_MS,
           onBack = ::goBack,
-          onStartOver = {
-            attemptedConnect = false
-            attemptedGatewayName = null
-            setupError = null
-            step = OnboardingStep.Gateway
-          },
           onRetry = {
             connectAttemptStartedAtMs = SystemClock.elapsedRealtime()
             viewModel.refreshGatewayConnection()
@@ -1415,7 +1409,6 @@ private fun GatewayRecoveryScreen(
   connectSettling: Boolean,
   connectTimedOut: Boolean,
   onBack: () -> Unit,
-  onStartOver: () -> Unit,
   onRetry: () -> Unit,
   onContinue: () -> Unit,
   modifier: Modifier = Modifier,
@@ -1513,7 +1506,7 @@ private fun GatewayRecoveryScreen(
               when (action) {
                 GatewayRecoveryPrimaryAction.Finish -> onContinue
                 GatewayRecoveryPrimaryAction.Retry -> onRetry
-                GatewayRecoveryPrimaryAction.StartOver -> onStartOver
+                GatewayRecoveryPrimaryAction.Back -> onBack
               },
             modifier = Modifier.fillMaxWidth(),
           )
@@ -1944,12 +1937,7 @@ private fun PermissionRow(row: PermissionRowModel) {
           maxLines = 1,
         )
       }
-      Text(
-        text = row.statusText,
-        style = ClawTheme.type.body,
-        color = if (row.granted) ClawTheme.colors.success else ClawTheme.colors.textMuted,
-        maxLines = 1,
-      )
+      PermissionRowStatus(row = row)
       Icon(
         imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
         contentDescription = null,
@@ -1957,6 +1945,28 @@ private fun PermissionRow(row: PermissionRowModel) {
         tint = ClawTheme.colors.text,
       )
     }
+  }
+}
+
+@Composable
+private fun PermissionRowStatus(row: PermissionRowModel) {
+  when (val status = row.status) {
+    is PermissionRowStatus.Icon -> {
+      val statusText = if (status.granted) "Granted" else "Not granted"
+      Icon(
+        imageVector = if (status.granted) Icons.Default.CheckCircle else Icons.Default.Close,
+        contentDescription = statusText,
+        modifier = Modifier.size(18.dp),
+        tint = if (status.granted) ClawTheme.colors.success else ClawTheme.colors.danger,
+      )
+    }
+    is PermissionRowStatus.Label ->
+      Text(
+        text = status.text,
+        style = ClawTheme.type.body,
+        color = if (status.highlighted) ClawTheme.colors.success else ClawTheme.colors.textMuted,
+        maxLines = 1,
+      )
   }
 }
 
@@ -2011,11 +2021,11 @@ internal enum class GatewayRecoveryUiState(
 
 internal enum class GatewayRecoveryPrimaryAction(
   val text: String,
-  val icon: ImageVector,
+  val icon: ImageVector?,
 ) {
-  Finish(text = "Continue", icon = Icons.AutoMirrored.Filled.KeyboardArrowRight),
+  Finish(text = "Continue", icon = null),
   Retry(text = "Retry connection", icon = Icons.Default.WifiTethering),
-  StartOver(text = "Start over", icon = Icons.Default.ErrorOutline),
+  Back(text = "Back", icon = Icons.AutoMirrored.Filled.ArrowBack),
 }
 
 internal enum class GatewayRecoveryProgressStatus {
@@ -2032,13 +2042,13 @@ internal data class GatewayRecoveryProgressItem(
 internal fun gatewayRecoveryPrimaryAction(state: GatewayRecoveryUiState): GatewayRecoveryPrimaryAction? =
   when (state) {
     GatewayRecoveryUiState.Connected -> GatewayRecoveryPrimaryAction.Finish
-    GatewayRecoveryUiState.Failed -> GatewayRecoveryPrimaryAction.StartOver
+    GatewayRecoveryUiState.Failed -> GatewayRecoveryPrimaryAction.Back
     GatewayRecoveryUiState.ApprovalRequired -> GatewayRecoveryPrimaryAction.Retry
     GatewayRecoveryUiState.NodeCapabilityApprovalPending,
     GatewayRecoveryUiState.Pairing,
     GatewayRecoveryUiState.Finishing,
     -> null
-    GatewayRecoveryUiState.TakingLonger -> GatewayRecoveryPrimaryAction.StartOver
+    GatewayRecoveryUiState.TakingLonger -> GatewayRecoveryPrimaryAction.Back
   }
 
 internal fun gatewayRecoveryProgressItems(
@@ -2314,9 +2324,20 @@ private data class PermissionRowModel(
   val subtitle: String,
   val icon: ImageVector,
   val granted: Boolean,
-  val statusText: String = permissionRowStatusText(granted),
+  val status: PermissionRowStatus = PermissionRowStatus.Icon(granted),
   val onClick: () -> Unit,
 )
+
+private sealed interface PermissionRowStatus {
+  data class Icon(
+    val granted: Boolean,
+  ) : PermissionRowStatus
+
+  data class Label(
+    val text: String,
+    val highlighted: Boolean,
+  ) : PermissionRowStatus
+}
 
 /** Permission screen model plus a commit hook that persists granted feature toggles. */
 private class PermissionState(
@@ -2354,8 +2375,6 @@ internal fun cameraPermissionRowStatusText(
     androidCameraPermissionGranted -> "Off"
     else -> "Not allowed"
   }
-
-private fun permissionRowStatusText(granted: Boolean): String = if (granted) "Granted" else "Not granted"
 
 /** Builds permission rows and applies granted feature toggles after onboarding. */
 @Composable
@@ -2455,9 +2474,13 @@ private fun rememberPermissionState(
         "Capture photos and clips from this phone",
         Icons.Default.CameraAlt,
         cameraGranted,
-        cameraPermissionRowStatusText(
-          capabilityEnabled = cameraGranted,
-          androidCameraPermissionGranted = hasPermission(context, Manifest.permission.CAMERA),
+        PermissionRowStatus.Label(
+          text =
+            cameraPermissionRowStatusText(
+              capabilityEnabled = cameraGranted,
+              androidCameraPermissionGranted = hasPermission(context, Manifest.permission.CAMERA),
+            ),
+          highlighted = cameraGranted,
         ),
         ::requestCameraCapability,
       ),
