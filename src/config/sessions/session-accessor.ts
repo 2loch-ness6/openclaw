@@ -1980,7 +1980,7 @@ async function replayRecentUserAssistantMessagesToSqlite(params: {
   }
 }
 
-function extractReplayMessage(record: unknown): unknown | undefined {
+function extractReplayMessage(record: unknown): unknown {
   if (!record || typeof record !== "object" || Array.isArray(record)) {
     return undefined;
   }
@@ -2264,9 +2264,7 @@ export function loadTranscriptEventsSync(scope: SessionTranscriptReadScope): Tra
 }
 
 /** Reads transcript freshness and byte size without materializing event rows. */
-export function readTranscriptStatsSync(
-  scope: SessionTranscriptReadScope,
-): SessionTranscriptStats {
+export function readTranscriptStatsSync(scope: SessionTranscriptReadScope): SessionTranscriptStats {
   return readSqliteTranscriptStatsSync(scope);
 }
 
