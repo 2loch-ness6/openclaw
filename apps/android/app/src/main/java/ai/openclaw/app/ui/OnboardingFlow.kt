@@ -2518,9 +2518,9 @@ internal fun permissionContinueNeedsNodeApproval(
   requiresNodeApprovalAfterApply: Boolean,
   nodeCapabilityApprovalState: GatewayNodeApprovalState,
 ): Boolean =
-  !ready &&
+  requiresNodeApprovalAfterApply ||
     (
-      requiresNodeApprovalAfterApply ||
+      !ready &&
         nodeCapabilityApprovalNeedsUserAction(nodeCapabilityApprovalState)
     )
 
@@ -2569,7 +2569,10 @@ internal fun canFinishOnboarding(
       -> true
     }
 
-internal fun initialCameraCapabilityEnabled(androidCameraPermissionGranted: Boolean): Boolean = false
+internal fun initialCameraCapabilityEnabled(
+  savedCapabilityEnabled: Boolean,
+  androidCameraPermissionGranted: Boolean,
+): Boolean = savedCapabilityEnabled && androidCameraPermissionGranted
 
 internal fun cameraPermissionRowStatusText(
   capabilityEnabled: Boolean,
@@ -2602,7 +2605,7 @@ private fun rememberPermissionState(
   val currentLocationMode by viewModel.locationMode.collectAsState()
   var microphoneGranted by rememberSaveable { mutableStateOf(hasPermission(context, Manifest.permission.RECORD_AUDIO)) }
   val cameraPermissionGranted = hasPermission(context, Manifest.permission.CAMERA)
-  var cameraGranted by rememberSaveable { mutableStateOf(initialCameraCapabilityEnabled(cameraPermissionGranted)) }
+  var cameraGranted by rememberSaveable { mutableStateOf(initialCameraCapabilityEnabled(currentCameraEnabled, cameraPermissionGranted)) }
   var locationGranted by rememberSaveable {
     mutableStateOf(hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) || hasPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION))
   }

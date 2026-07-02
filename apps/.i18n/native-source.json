@@ -2051,7 +2051,7 @@
     },
     {
       "kind": "conditional-branch",
-      "line": 2584,
+      "line": 2587,
       "path": "apps/android/app/src/main/java/ai/openclaw/app/ui/OnboardingFlow.kt",
       "source": "Granted",
       "surface": "android",
@@ -2059,7 +2059,7 @@
     },
     {
       "kind": "conditional-branch",
-      "line": 2584,
+      "line": 2587,
       "path": "apps/android/app/src/main/java/ai/openclaw/app/ui/OnboardingFlow.kt",
       "source": "Not granted",
       "surface": "android",
