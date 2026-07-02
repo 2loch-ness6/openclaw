@@ -7,7 +7,7 @@ import ai.openclaw.app.MainViewModel
 import ai.openclaw.app.R
 import ai.openclaw.app.SensitiveFeatureConfig
 import ai.openclaw.app.gateway.GatewayEndpoint
-import ai.openclaw.app.gateway.isLoopbackGatewayHost
+import ai.openclaw.app.gateway.isLocalCleartextGatewayHost
 import ai.openclaw.app.hasPhotoReadPermission
 import ai.openclaw.app.node.DeviceNotificationListenerService
 import ai.openclaw.app.photoReadPermissionsForRequest
@@ -2833,7 +2833,7 @@ internal fun nearbyGatewayManualPort(endpoint: GatewayEndpoint): String = endpoi
 internal fun nearbyGatewayManualTls(endpoint: GatewayEndpoint): Boolean =
   endpoint.tlsEnabled ||
     !endpoint.tlsFingerprintSha256.isNullOrBlank() ||
-    !isLoopbackGatewayHost(endpoint.host)
+    !isLocalCleartextGatewayHost(endpoint.host)
 
 private fun hasPermission(
   context: Context,
