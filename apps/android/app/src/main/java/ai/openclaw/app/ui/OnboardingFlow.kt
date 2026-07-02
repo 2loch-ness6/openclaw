@@ -194,6 +194,7 @@ internal data class OnboardingBackState(
 internal fun onboardingBackDestination(
   step: OnboardingStep,
   lastGatewayInputSource: OnboardingGatewayInputSource = OnboardingGatewayInputSource.SetupScanner,
+  permissionsBackStep: OnboardingStep = OnboardingStep.NodeApproval,
 ): OnboardingBackDestination? =
   when (step) {
     OnboardingStep.Welcome -> null
@@ -210,13 +211,14 @@ internal fun onboardingBackDestination(
         OnboardingGatewayInputSource.Manual -> OnboardingBackDestination(OnboardingStep.Manual)
       }
     OnboardingStep.NodeApproval -> OnboardingBackDestination(OnboardingStep.Recovery)
-    OnboardingStep.Permissions -> OnboardingBackDestination(OnboardingStep.NodeApproval)
+    OnboardingStep.Permissions -> OnboardingBackDestination(permissionsBackStep)
   }
 
 internal fun onboardingBackStateAfterBack(
   step: OnboardingStep,
   lastGatewayInputSource: OnboardingGatewayInputSource = OnboardingGatewayInputSource.SetupScanner,
   setupCodeEntryOpenedFromScanner: Boolean = false,
+  permissionsBackStep: OnboardingStep = OnboardingStep.NodeApproval,
 ): OnboardingBackState? {
   if (step == OnboardingStep.EnterSetupCode) {
     return OnboardingBackState(
@@ -224,7 +226,12 @@ internal fun onboardingBackStateAfterBack(
       inlineQrScannerActive = setupCodeEntryOpenedFromScanner,
     )
   }
-  val destination = onboardingBackDestination(step = step, lastGatewayInputSource = lastGatewayInputSource) ?: return null
+  val destination =
+    onboardingBackDestination(
+      step = step,
+      lastGatewayInputSource = lastGatewayInputSource,
+      permissionsBackStep = permissionsBackStep,
+    ) ?: return null
   return OnboardingBackState(step = destination.step, inlineQrScannerActive = destination.inlineQrScannerActive)
 }
 
@@ -273,6 +280,7 @@ fun OnboardingFlow(
     var setupCodeEntryOpenedFromScanner by rememberSaveable { mutableStateOf(false) }
     var connectAttemptStartedAtMs by rememberSaveable { mutableLongStateOf(0L) }
     var recoveryNowMs by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    var permissionsBackStep by rememberSaveable { mutableStateOf(OnboardingStep.NodeApproval) }
     var nodeApprovalCheckRequested by rememberSaveable { mutableStateOf(false) }
 
     OpenClawSystemBarAppearance(lightAppearance = !onboardingDark)
@@ -305,13 +313,21 @@ fun OnboardingFlow(
           step = step,
           lastGatewayInputSource = lastGatewayInputSource,
           setupCodeEntryOpenedFromScanner = setupCodeEntryOpenedFromScanner,
+          permissionsBackStep = permissionsBackStep,
         ) ?: return
       inlineQrScannerActive = next.inlineQrScannerActive
       setupCodeEntryOpenedFromScanner = next.setupCodeEntryOpenedFromScanner
       step = next.step
     }
 
-    BackHandler(enabled = onboardingBackDestination(step = step, lastGatewayInputSource = lastGatewayInputSource) != null) {
+    BackHandler(
+      enabled =
+        onboardingBackDestination(
+          step = step,
+          lastGatewayInputSource = lastGatewayInputSource,
+          permissionsBackStep = permissionsBackStep,
+        ) != null,
+    ) {
       goBack()
     }
 
@@ -340,6 +356,7 @@ fun OnboardingFlow(
     LaunchedEffect(step, ready, nodeApprovalCheckRequested) {
       if (step == OnboardingStep.NodeApproval && nodeApprovalCheckRequested && ready) {
         nodeApprovalCheckRequested = false
+        permissionsBackStep = OnboardingStep.NodeApproval
         step = OnboardingStep.Permissions
       }
     }
@@ -374,7 +391,10 @@ fun OnboardingFlow(
           nodeCapabilityApprovalState = nodeCapabilityApprovalState,
         )
       ) {
-        OnboardingStep.Permissions -> step = OnboardingStep.Permissions
+        OnboardingStep.Permissions -> {
+          permissionsBackStep = OnboardingStep.Recovery
+          step = OnboardingStep.Permissions
+        }
         OnboardingStep.NodeApproval -> {
           nodeApprovalCheckRequested = false
           step = OnboardingStep.NodeApproval
@@ -389,6 +409,7 @@ fun OnboardingFlow(
     fun checkNodeApproval() {
       nodeApprovalCheckRequested = true
       if (ready) {
+        permissionsBackStep = OnboardingStep.NodeApproval
         step = OnboardingStep.Permissions
         return
       }
@@ -2177,10 +2198,10 @@ internal fun gatewayPairingUiState(
   gatewayConnectionProblem: GatewayConnectionProblem? = null,
 ): GatewayRecoveryUiState =
   when {
-    gatewayPaired -> GatewayRecoveryUiState.Connected
     gatewayConnectionProblem?.isPairingRequired == true &&
       !gatewayConnectionProblem.canAutoRetry -> GatewayRecoveryUiState.ApprovalRequired
     gatewayConnectionProblem?.isPairingRequired == true -> GatewayRecoveryUiState.Pairing
+    gatewayPaired -> GatewayRecoveryUiState.Connected
     gatewayConnectionProblem?.pauseReconnect == true -> GatewayRecoveryUiState.Failed
     gatewayStatusLooksLikePairing(statusText) -> GatewayRecoveryUiState.Pairing
     connectSettling -> GatewayRecoveryUiState.Finishing
