@@ -289,6 +289,7 @@ fun OnboardingFlow(
     var nodeApprovalBackStep by rememberSaveable { mutableStateOf(OnboardingStep.Recovery) }
     var permissionsBackStep by rememberSaveable { mutableStateOf(OnboardingStep.NodeApproval) }
     var nodeApprovalCheckRequested by rememberSaveable { mutableStateOf(false) }
+    var nodeApprovalCheckRefreshStarted by rememberSaveable { mutableStateOf(false) }
 
     OpenClawSystemBarAppearance(lightAppearance = !onboardingDark)
 
@@ -362,9 +363,24 @@ fun OnboardingFlow(
       }
     }
 
-    LaunchedEffect(step, ready, nodeApprovalCheckRequested) {
-      if (step == OnboardingStep.NodeApproval && nodeApprovalCheckRequested && ready) {
+    LaunchedEffect(nodeApprovalCheckRequested, nodesDevicesRefreshing) {
+      if (nodeApprovalCheckRequested && nodesDevicesRefreshing) {
+        nodeApprovalCheckRefreshStarted = true
+      }
+    }
+
+    LaunchedEffect(step, ready, nodeApprovalCheckRequested, nodeApprovalCheckRefreshStarted, nodesDevicesRefreshing) {
+      if (
+        step == OnboardingStep.NodeApproval &&
+        nodeApprovalCheckCanContinue(
+          checkRequested = nodeApprovalCheckRequested,
+          refreshStarted = nodeApprovalCheckRefreshStarted,
+          nodesDevicesRefreshing = nodesDevicesRefreshing,
+          ready = ready,
+        )
+      ) {
         nodeApprovalCheckRequested = false
+        nodeApprovalCheckRefreshStarted = false
         permissionsBackStep = OnboardingStep.NodeApproval
         step = OnboardingStep.Permissions
       }
@@ -406,6 +422,7 @@ fun OnboardingFlow(
         }
         OnboardingStep.NodeApproval -> {
           nodeApprovalCheckRequested = false
+          nodeApprovalCheckRefreshStarted = false
           nodeApprovalBackStep = OnboardingStep.Recovery
           step = OnboardingStep.NodeApproval
         }
@@ -418,11 +435,7 @@ fun OnboardingFlow(
 
     fun checkNodeApproval() {
       nodeApprovalCheckRequested = true
-      if (ready) {
-        permissionsBackStep = OnboardingStep.NodeApproval
-        step = OnboardingStep.Permissions
-        return
-      }
+      nodeApprovalCheckRefreshStarted = false
       viewModel.refreshNodesDevices()
       viewModel.refreshGatewayConnection()
     }
@@ -730,6 +743,7 @@ fun OnboardingFlow(
           checkingApproval =
             nodeApprovalCheckingInProgress(
               checkRequested = nodeApprovalCheckRequested,
+              refreshStarted = nodeApprovalCheckRefreshStarted,
               nodesDevicesRefreshing = nodesDevicesRefreshing,
             ),
           checkRequested = nodeApprovalCheckRequested,
@@ -754,6 +768,7 @@ fun OnboardingFlow(
             ) {
               nodeApprovalBackStep = OnboardingStep.Permissions
               nodeApprovalCheckRequested = false
+              nodeApprovalCheckRefreshStarted = false
               viewModel.refreshNodesDevices()
               viewModel.refreshGatewayConnection()
               step = OnboardingStep.NodeApproval
@@ -2510,8 +2525,20 @@ internal fun shouldRefreshNodeApprovalDuringRecovery(
 
 internal fun nodeApprovalCheckingInProgress(
   checkRequested: Boolean,
+  refreshStarted: Boolean,
   nodesDevicesRefreshing: Boolean,
-): Boolean = checkRequested && nodesDevicesRefreshing
+): Boolean = checkRequested && (!refreshStarted || nodesDevicesRefreshing)
+
+internal fun nodeApprovalCheckCanContinue(
+  checkRequested: Boolean,
+  refreshStarted: Boolean,
+  nodesDevicesRefreshing: Boolean,
+  ready: Boolean,
+): Boolean =
+  checkRequested &&
+    refreshStarted &&
+    !nodesDevicesRefreshing &&
+    ready
 
 internal fun permissionContinueNeedsNodeApproval(
   ready: Boolean,
