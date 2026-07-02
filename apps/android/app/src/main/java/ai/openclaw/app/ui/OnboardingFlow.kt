@@ -196,6 +196,7 @@ internal data class OnboardingBackState(
 internal fun onboardingBackDestination(
   step: OnboardingStep,
   lastGatewayInputSource: OnboardingGatewayInputSource = OnboardingGatewayInputSource.SetupScanner,
+  nodeApprovalBackStep: OnboardingStep = OnboardingStep.Recovery,
   permissionsBackStep: OnboardingStep = OnboardingStep.NodeApproval,
 ): OnboardingBackDestination? =
   when (step) {
@@ -212,7 +213,7 @@ internal fun onboardingBackDestination(
         -> OnboardingBackDestination(OnboardingStep.SetupCode)
         OnboardingGatewayInputSource.Manual -> OnboardingBackDestination(OnboardingStep.Manual)
       }
-    OnboardingStep.NodeApproval -> OnboardingBackDestination(OnboardingStep.Recovery)
+    OnboardingStep.NodeApproval -> OnboardingBackDestination(nodeApprovalBackStep)
     OnboardingStep.Permissions -> OnboardingBackDestination(permissionsBackStep)
   }
 
@@ -220,6 +221,7 @@ internal fun onboardingBackStateAfterBack(
   step: OnboardingStep,
   lastGatewayInputSource: OnboardingGatewayInputSource = OnboardingGatewayInputSource.SetupScanner,
   setupCodeEntryOpenedFromScanner: Boolean = false,
+  nodeApprovalBackStep: OnboardingStep = OnboardingStep.Recovery,
   permissionsBackStep: OnboardingStep = OnboardingStep.NodeApproval,
 ): OnboardingBackState? {
   if (step == OnboardingStep.EnterSetupCode) {
@@ -232,6 +234,7 @@ internal fun onboardingBackStateAfterBack(
     onboardingBackDestination(
       step = step,
       lastGatewayInputSource = lastGatewayInputSource,
+      nodeApprovalBackStep = nodeApprovalBackStep,
       permissionsBackStep = permissionsBackStep,
     ) ?: return null
   return OnboardingBackState(step = destination.step, inlineQrScannerActive = destination.inlineQrScannerActive)
@@ -283,6 +286,7 @@ fun OnboardingFlow(
     var setupCodeEntryOpenedFromScanner by rememberSaveable { mutableStateOf(false) }
     var connectAttemptStartedAtMs by rememberSaveable { mutableLongStateOf(0L) }
     var recoveryNowMs by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
+    var nodeApprovalBackStep by rememberSaveable { mutableStateOf(OnboardingStep.Recovery) }
     var permissionsBackStep by rememberSaveable { mutableStateOf(OnboardingStep.NodeApproval) }
     var nodeApprovalCheckRequested by rememberSaveable { mutableStateOf(false) }
 
@@ -316,6 +320,7 @@ fun OnboardingFlow(
           step = step,
           lastGatewayInputSource = lastGatewayInputSource,
           setupCodeEntryOpenedFromScanner = setupCodeEntryOpenedFromScanner,
+          nodeApprovalBackStep = nodeApprovalBackStep,
           permissionsBackStep = permissionsBackStep,
         ) ?: return
       inlineQrScannerActive = next.inlineQrScannerActive
@@ -328,6 +333,7 @@ fun OnboardingFlow(
         onboardingBackDestination(
           step = step,
           lastGatewayInputSource = lastGatewayInputSource,
+          nodeApprovalBackStep = nodeApprovalBackStep,
           permissionsBackStep = permissionsBackStep,
         ) != null,
     ) {
@@ -400,6 +406,7 @@ fun OnboardingFlow(
         }
         OnboardingStep.NodeApproval -> {
           nodeApprovalCheckRequested = false
+          nodeApprovalBackStep = OnboardingStep.Recovery
           step = OnboardingStep.NodeApproval
         }
         else -> {
@@ -738,7 +745,15 @@ fun OnboardingFlow(
           onBack = ::goBack,
           onContinue = {
             permissionState.applyToViewModel()
-            viewModel.setOnboardingCompleted(true)
+            if (permissionState.requiresNodeApprovalAfterApply) {
+              nodeApprovalBackStep = OnboardingStep.Permissions
+              nodeApprovalCheckRequested = false
+              viewModel.refreshNodesDevices()
+              viewModel.refreshGatewayConnection()
+              step = OnboardingStep.NodeApproval
+            } else {
+              viewModel.setOnboardingCompleted(true)
+            }
           },
         )
     }
@@ -2514,6 +2529,7 @@ private data class PermissionRowModel(
 /** Permission screen model plus a commit hook that persists granted feature toggles. */
 private class PermissionState(
   val rows: List<PermissionRowModel>,
+  val requiresNodeApprovalAfterApply: Boolean,
   val applyToViewModel: () -> Unit,
 )
 
@@ -2550,12 +2566,23 @@ internal fun cameraPermissionRowStatusText(
 
 private fun permissionRowStatusText(granted: Boolean): String = if (granted) "Granted" else "Not granted"
 
+internal fun permissionChangesRequireNodeApproval(
+  currentCameraEnabled: Boolean,
+  requestedCameraEnabled: Boolean,
+  currentLocationMode: LocationMode,
+  requestedLocationMode: LocationMode,
+): Boolean =
+  currentCameraEnabled != requestedCameraEnabled ||
+    currentLocationMode != requestedLocationMode
+
 /** Builds permission rows and applies granted feature toggles after onboarding. */
 @Composable
 private fun rememberPermissionState(
   context: Context,
   viewModel: MainViewModel,
 ): PermissionState {
+  val currentCameraEnabled by viewModel.cameraEnabled.collectAsState()
+  val currentLocationMode by viewModel.locationMode.collectAsState()
   var microphoneGranted by rememberSaveable { mutableStateOf(hasPermission(context, Manifest.permission.RECORD_AUDIO)) }
   val cameraPermissionGranted = hasPermission(context, Manifest.permission.CAMERA)
   var cameraGranted by rememberSaveable { mutableStateOf(initialCameraCapabilityEnabled(cameraPermissionGranted)) }
@@ -2701,6 +2728,13 @@ private fun rememberPermissionState(
 
   return PermissionState(
     rows = rows,
+    requiresNodeApprovalAfterApply =
+      permissionChangesRequireNodeApproval(
+        currentCameraEnabled = currentCameraEnabled,
+        requestedCameraEnabled = cameraGranted,
+        currentLocationMode = currentLocationMode,
+        requestedLocationMode = if (locationGranted) LocationMode.WhileUsing else LocationMode.Off,
+      ),
     applyToViewModel = {
       viewModel.setCameraEnabled(cameraGranted)
       viewModel.setLocationMode(if (locationGranted) LocationMode.WhileUsing else LocationMode.Off)
