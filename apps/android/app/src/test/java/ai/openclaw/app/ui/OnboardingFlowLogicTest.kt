@@ -472,8 +472,8 @@ class OnboardingFlowLogicTest {
   }
 
   @Test
-  fun nodeApprovalCheckContinuesOnlyAfterRequestedRefreshCompletesReady() {
-    assertFalse(
+  fun nodeApprovalCheckContinuesWhenRequestedCheckFindsGatewayReady() {
+    assertTrue(
       nodeApprovalCheckCanContinue(
         checkRequested = true,
         refreshStarted = false,

@@ -2572,7 +2572,6 @@ internal fun nodeApprovalCheckCanContinue(
   ready: Boolean,
 ): Boolean =
   checkRequested &&
-    refreshStarted &&
     !nodesDevicesRefreshing &&
     ready
 
