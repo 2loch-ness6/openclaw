@@ -368,12 +368,22 @@ fun OnboardingFlow(
     }
 
     fun continueFromGatewayPairing() {
-      if (ready) {
-        step = OnboardingStep.Permissions
-        return
+      when (
+        gatewayPairingContinueDestination(
+          ready = ready,
+          nodeCapabilityApprovalState = nodeCapabilityApprovalState,
+        )
+      ) {
+        OnboardingStep.Permissions -> step = OnboardingStep.Permissions
+        OnboardingStep.NodeApproval -> {
+          nodeApprovalCheckRequested = false
+          step = OnboardingStep.NodeApproval
+        }
+        else -> {
+          viewModel.refreshNodesDevices()
+          viewModel.refreshGatewayConnection()
+        }
       }
-      nodeApprovalCheckRequested = false
-      step = OnboardingStep.NodeApproval
     }
 
     fun checkNodeApproval() {
@@ -2420,6 +2430,16 @@ internal fun nodeCapabilityApprovalNeedsUserAction(state: GatewayNodeApprovalSta
   state == GatewayNodeApprovalState.PendingApproval ||
     state == GatewayNodeApprovalState.PendingReapproval ||
     state == GatewayNodeApprovalState.Unapproved
+
+internal fun gatewayPairingContinueDestination(
+  ready: Boolean,
+  nodeCapabilityApprovalState: GatewayNodeApprovalState,
+): OnboardingStep? =
+  when {
+    ready -> OnboardingStep.Permissions
+    nodeCapabilityApprovalNeedsUserAction(nodeCapabilityApprovalState) -> OnboardingStep.NodeApproval
+    else -> null
+  }
 
 internal fun shouldRefreshNodeApprovalDuringRecovery(
   nodeCapabilityApprovalState: GatewayNodeApprovalState,
