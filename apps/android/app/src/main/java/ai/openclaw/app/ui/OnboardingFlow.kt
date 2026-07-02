@@ -696,6 +696,12 @@ fun OnboardingFlow(
           serverName = serverName,
           attemptedGatewayName = attemptedGatewayName,
           gatewayPaired = isConnected,
+          gatewayPairingCanContinue =
+            isConnected &&
+              gatewayPairingContinueDestination(
+                ready = ready,
+                nodeCapabilityApprovalState = nodeCapabilityApprovalState,
+              ) != null,
           gatewayConnectionProblem = gatewayConnectionProblem,
           connectSettling = recoveryNowMs - connectAttemptStartedAtMs < GATEWAY_CONNECT_SETTLING_MS,
           connectTimedOut = recoveryNowMs - connectAttemptStartedAtMs >= GATEWAY_CONNECT_TIMEOUT_MS,
@@ -1562,6 +1568,7 @@ private fun GatewayRecoveryScreen(
   serverName: String?,
   attemptedGatewayName: String?,
   gatewayPaired: Boolean,
+  gatewayPairingCanContinue: Boolean,
   gatewayConnectionProblem: GatewayConnectionProblem?,
   connectSettling: Boolean,
   connectTimedOut: Boolean,
@@ -1573,6 +1580,7 @@ private fun GatewayRecoveryScreen(
   val recoveryState =
     gatewayPairingUiState(
       gatewayPaired = gatewayPaired,
+      gatewayPairingCanContinue = gatewayPairingCanContinue,
       statusText = statusText,
       connectSettling = connectSettling,
       connectTimedOut = connectTimedOut,
@@ -2192,6 +2200,7 @@ internal fun gatewayRecoveryPrimaryAction(state: GatewayRecoveryUiState): Gatewa
 
 internal fun gatewayPairingUiState(
   gatewayPaired: Boolean,
+  gatewayPairingCanContinue: Boolean,
   statusText: String,
   connectSettling: Boolean,
   connectTimedOut: Boolean = false,
@@ -2201,9 +2210,10 @@ internal fun gatewayPairingUiState(
     gatewayConnectionProblem?.isPairingRequired == true &&
       !gatewayConnectionProblem.canAutoRetry -> GatewayRecoveryUiState.ApprovalRequired
     gatewayConnectionProblem?.isPairingRequired == true -> GatewayRecoveryUiState.Pairing
-    gatewayPaired -> GatewayRecoveryUiState.Connected
+    gatewayPairingCanContinue -> GatewayRecoveryUiState.Connected
     gatewayConnectionProblem?.pauseReconnect == true -> GatewayRecoveryUiState.Failed
     gatewayStatusLooksLikePairing(statusText) -> GatewayRecoveryUiState.Pairing
+    gatewayPaired -> if (connectTimedOut) GatewayRecoveryUiState.TakingLonger else GatewayRecoveryUiState.Finishing
     connectSettling -> GatewayRecoveryUiState.Finishing
     connectTimedOut -> GatewayRecoveryUiState.TakingLonger
     else -> GatewayRecoveryUiState.Failed
