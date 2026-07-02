@@ -745,7 +745,13 @@ fun OnboardingFlow(
           onBack = ::goBack,
           onContinue = {
             permissionState.applyToViewModel()
-            if (permissionState.requiresNodeApprovalAfterApply) {
+            if (
+              permissionContinueNeedsNodeApproval(
+                ready = ready,
+                requiresNodeApprovalAfterApply = permissionState.requiresNodeApprovalAfterApply,
+                nodeCapabilityApprovalState = nodeCapabilityApprovalState,
+              )
+            ) {
               nodeApprovalBackStep = OnboardingStep.Permissions
               nodeApprovalCheckRequested = false
               viewModel.refreshNodesDevices()
@@ -2236,7 +2242,7 @@ internal fun gatewayPairingUiState(
     gatewayPaired -> if (connectTimedOut) GatewayRecoveryUiState.TakingLonger else GatewayRecoveryUiState.Finishing
     connectSettling -> GatewayRecoveryUiState.Finishing
     connectTimedOut -> GatewayRecoveryUiState.TakingLonger
-    else -> GatewayRecoveryUiState.Failed
+    else -> GatewayRecoveryUiState.Finishing
   }
 
 internal fun gatewayRecoveryProgressItems(
@@ -2506,6 +2512,17 @@ internal fun nodeApprovalCheckingInProgress(
   checkRequested: Boolean,
   nodesDevicesRefreshing: Boolean,
 ): Boolean = checkRequested && nodesDevicesRefreshing
+
+internal fun permissionContinueNeedsNodeApproval(
+  ready: Boolean,
+  requiresNodeApprovalAfterApply: Boolean,
+  nodeCapabilityApprovalState: GatewayNodeApprovalState,
+): Boolean =
+  !ready &&
+    (
+      requiresNodeApprovalAfterApply ||
+        nodeCapabilityApprovalNeedsUserAction(nodeCapabilityApprovalState)
+    )
 
 private fun copyApprovalCommand(
   context: Context,

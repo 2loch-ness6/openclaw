@@ -329,6 +329,31 @@ class OnboardingFlowLogicTest {
   }
 
   @Test
+  fun permissionContinueReturnsToNodeApprovalWhenApprovalIsStillPending() {
+    assertTrue(
+      permissionContinueNeedsNodeApproval(
+        ready = false,
+        requiresNodeApprovalAfterApply = false,
+        nodeCapabilityApprovalState = GatewayNodeApprovalState.PendingReapproval,
+      ),
+    )
+    assertTrue(
+      permissionContinueNeedsNodeApproval(
+        ready = false,
+        requiresNodeApprovalAfterApply = true,
+        nodeCapabilityApprovalState = GatewayNodeApprovalState.Approved,
+      ),
+    )
+    assertFalse(
+      permissionContinueNeedsNodeApproval(
+        ready = true,
+        requiresNodeApprovalAfterApply = true,
+        nodeCapabilityApprovalState = GatewayNodeApprovalState.PendingReapproval,
+      ),
+    )
+  }
+
+  @Test
   fun recoveryNodeApprovalPollingWaitsForInFlightRefresh() {
     assertTrue(
       shouldRefreshNodeApprovalDuringRecovery(
@@ -509,6 +534,16 @@ class OnboardingFlowLogicTest {
 
   @Test
   fun gatewayPairingShowsSlowConnectionWhenGatewayNeverPairs() {
+    assertEquals(
+      GatewayRecoveryUiState.Finishing,
+      gatewayPairingUiState(
+        gatewayPaired = false,
+        gatewayPairingCanContinue = false,
+        statusText = "Connecting…",
+        connectSettling = false,
+        connectTimedOut = false,
+      ),
+    )
     assertEquals(
       GatewayRecoveryUiState.TakingLonger,
       gatewayPairingUiState(
