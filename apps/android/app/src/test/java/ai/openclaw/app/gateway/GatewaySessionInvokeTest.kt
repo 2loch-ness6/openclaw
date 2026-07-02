@@ -421,6 +421,7 @@ class GatewaySessionInvokeTest {
               "operator.approvals",
               "operator.pairing",
               "operator.read",
+              "operator.talk.secrets",
               "operator.write",
             ),
         )
@@ -439,6 +440,7 @@ class GatewaySessionInvokeTest {
           listOf(
             "operator.approvals",
             "operator.read",
+            "operator.talk.secrets",
             "operator.write",
           ),
           params.scopes(),
