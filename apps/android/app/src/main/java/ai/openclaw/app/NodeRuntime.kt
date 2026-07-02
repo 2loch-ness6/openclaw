@@ -1232,11 +1232,15 @@ class NodeRuntime(
   }
 
   fun setCameraEnabled(value: Boolean) {
+    if (prefs.cameraEnabled.value == value) return
     prefs.setCameraEnabled(value)
+    refreshNodeSurfaceAfterCapabilityChange()
   }
 
   fun setLocationMode(mode: LocationMode) {
+    if (prefs.locationMode.value == mode) return
     prefs.setLocationMode(mode)
+    refreshNodeSurfaceAfterCapabilityChange()
   }
 
   fun setLocationPreciseEnabled(value: Boolean) {
@@ -1270,11 +1274,13 @@ class NodeRuntime(
   fun setInstalledAppsSharingEnabled(value: Boolean) {
     if (prefs.installedAppsSharingEnabled.value == value) return
     prefs.setInstalledAppsSharingEnabled(value)
-    refreshNodeSurfaceAfterSharingChange()
+    refreshNodeSurfaceAfterCapabilityChange()
   }
 
   fun setNotificationForwardingEnabled(value: Boolean) {
+    if (prefs.notificationForwardingEnabled.value == value) return
     prefs.setNotificationForwardingEnabled(value)
+    refreshNodeSurfaceAfterCapabilityChange()
   }
 
   fun setNotificationForwardingMode(mode: NotificationPackageFilterMode) {
@@ -1628,7 +1634,7 @@ class NodeRuntime(
     connectWithAuth(endpoint = endpoint, auth = resolveGatewayConnectAuth(), reconnect = true)
   }
 
-  private fun refreshNodeSurfaceAfterSharingChange() {
+  private fun refreshNodeSurfaceAfterCapabilityChange() {
     val endpoint = connectedEndpoint ?: return
     connectWithAuth(endpoint = endpoint, auth = resolveGatewayConnectAuth(), reconnect = true)
   }

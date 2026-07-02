@@ -249,11 +249,11 @@ class MainViewModel(
   }
 
   fun setCameraEnabled(value: Boolean) {
-    prefs.setCameraEnabled(value)
+    runtimeRef.value?.setCameraEnabled(value) ?: prefs.setCameraEnabled(value)
   }
 
   fun setLocationMode(mode: LocationMode) {
-    prefs.setLocationMode(mode)
+    runtimeRef.value?.setLocationMode(mode) ?: prefs.setLocationMode(mode)
   }
 
   fun setLocationPreciseEnabled(value: Boolean) {

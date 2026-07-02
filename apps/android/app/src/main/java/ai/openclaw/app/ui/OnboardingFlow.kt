@@ -721,8 +721,10 @@ fun OnboardingFlow(
           requestId = nodeCapabilityApprovalRequestId,
           approvalState = nodeCapabilityApprovalState,
           checkingApproval =
-            nodeApprovalCheckRequested &&
-              (nodesDevicesRefreshing || nodeCapabilityApprovalState == GatewayNodeApprovalState.Loading),
+            nodeApprovalCheckingInProgress(
+              checkRequested = nodeApprovalCheckRequested,
+              nodesDevicesRefreshing = nodesDevicesRefreshing,
+            ),
           checkRequested = nodeApprovalCheckRequested,
           ready = ready,
           onBack = ::goBack,
@@ -2484,6 +2486,11 @@ internal fun shouldRefreshNodeApprovalDuringRecovery(
       nodeCapabilityApprovalState == GatewayNodeApprovalState.Loading ||
         nodeCapabilityApprovalNeedsUserAction(nodeCapabilityApprovalState)
     )
+
+internal fun nodeApprovalCheckingInProgress(
+  checkRequested: Boolean,
+  nodesDevicesRefreshing: Boolean,
+): Boolean = checkRequested && nodesDevicesRefreshing
 
 private fun copyApprovalCommand(
   context: Context,
