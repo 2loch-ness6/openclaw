@@ -8,7 +8,9 @@ import ai.openclaw.app.R
 import ai.openclaw.app.SensitiveFeatureConfig
 import ai.openclaw.app.gateway.GatewayEndpoint
 import ai.openclaw.app.gateway.isLoopbackGatewayHost
+import ai.openclaw.app.hasPhotoReadPermission
 import ai.openclaw.app.node.DeviceNotificationListenerService
+import ai.openclaw.app.photoReadPermissionsForRequest
 import ai.openclaw.app.ui.design.ClawDesignTheme
 import ai.openclaw.app.ui.design.ClawPrimaryButton
 import ai.openclaw.app.ui.design.ClawScaffold
@@ -245,9 +247,10 @@ fun OnboardingFlow(
   val onboardingDark = appearanceThemeMode.isDark(systemDark = isSystemInDarkTheme())
   ClawDesignTheme(dark = onboardingDark) {
     val context = LocalContext.current
-    val statusText by viewModel.statusText.collectAsState()
-    val gatewayConnectionProblem by viewModel.gatewayConnectionProblem.collectAsState()
-    val isConnected by viewModel.isConnected.collectAsState()
+    val gatewayConnectionDisplay by viewModel.gatewayConnectionDisplay.collectAsState()
+    val statusText = gatewayConnectionDisplay.statusText
+    val gatewayConnectionProblem = gatewayConnectionDisplay.problem
+    val isConnected = gatewayConnectionDisplay.isConnected
     val isNodeConnected by viewModel.isNodeConnected.collectAsState()
     val nodeCapabilityApprovalState by viewModel.nodeCapabilityApprovalState.collectAsState()
     val nodeCapabilityApprovalRequestId by viewModel.nodeCapabilityApprovalRequestId.collectAsState()
@@ -2552,8 +2555,8 @@ private fun rememberPermissionState(
   var locationGranted by rememberSaveable {
     mutableStateOf(hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) || hasPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION))
   }
-  val photosPermission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_IMAGES else Manifest.permission.READ_EXTERNAL_STORAGE
-  var photosGranted by rememberSaveable { mutableStateOf(hasPermission(context, photosPermission)) }
+  val photosPermissions = photoReadPermissionsForRequest()
+  var photosGranted by rememberSaveable { mutableStateOf(hasPhotoReadPermission(context)) }
   var contactsGranted by rememberSaveable { mutableStateOf(hasPermission(context, Manifest.permission.READ_CONTACTS)) }
   var calendarGranted by rememberSaveable { mutableStateOf(hasPermission(context, Manifest.permission.READ_CALENDAR)) }
   var notificationsGranted by rememberSaveable {
@@ -2600,7 +2603,7 @@ private fun rememberPermissionState(
         permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
         permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true ||
         locationGranted
-      photosGranted = permissions[photosPermission] ?: photosGranted
+      photosGranted = hasPhotoReadPermission(context) || photosPermissions.any { permissions[it] == true }
       contactsGranted = permissions[Manifest.permission.READ_CONTACTS] ?: contactsGranted
       calendarGranted = permissions[Manifest.permission.READ_CALENDAR] ?: calendarGranted
       notificationsGranted =
@@ -2648,8 +2651,8 @@ private fun rememberPermissionState(
         request(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
       },
       if (photosAvailable) {
-        PermissionRowModel("Photos", "Read recent photos and media", Icons.Default.Image, photosGranted) {
-          request(photosPermission)
+        PermissionRowModel("Photos", "Attach photos and media", Icons.Default.Image, photosGranted) {
+          request(*photosPermissions.toTypedArray())
         }
       } else {
         null

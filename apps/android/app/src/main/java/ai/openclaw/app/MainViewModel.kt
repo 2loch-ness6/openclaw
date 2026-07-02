@@ -116,6 +116,8 @@ class MainViewModel(
   val nodeCapabilityApprovalRequestId: StateFlow<String?> = runtimeState(initial = null) { it.nodeCapabilityApprovalRequestId }
   val statusText: StateFlow<String> = runtimeState(initial = "Offline") { it.statusText }
   val gatewayConnectionProblem: StateFlow<GatewayConnectionProblem?> = runtimeState(initial = null) { it.gatewayConnectionProblem }
+  val gatewayConnectionDisplay: StateFlow<GatewayConnectionDisplay> =
+    runtimeState(initial = GatewayConnectionDisplay(false, "Offline", null)) { it.gatewayConnectionDisplay }
   val serverName: StateFlow<String?> = runtimeState(initial = null) { it.serverName }
   val remoteAddress: StateFlow<String?> = runtimeState(initial = null) { it.remoteAddress }
   val gatewayVersion: StateFlow<String?> = runtimeState(initial = null) { it.gatewayVersion }
