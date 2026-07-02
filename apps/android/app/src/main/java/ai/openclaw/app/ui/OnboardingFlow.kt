@@ -161,6 +161,7 @@ internal enum class OnboardingGatewayInputSource {
 
 private const val GATEWAY_CONNECT_SETTLING_MS = 2_500L
 private const val GATEWAY_CONNECT_TIMEOUT_MS = 20_000L
+private const val NODE_APPROVAL_REFRESH_OBSERVE_TIMEOUT_MS = 750L
 private const val ANDROID_SETUP_GUIDE_URL = "https://docs.openclaw.ai/platforms/android"
 private val OnboardingHorizontalPadding = 24.dp
 private val OnboardingTopPadding = 12.dp
@@ -366,6 +367,30 @@ fun OnboardingFlow(
     LaunchedEffect(nodeApprovalCheckRequested, nodesDevicesRefreshing) {
       if (nodeApprovalCheckRequested && nodesDevicesRefreshing) {
         nodeApprovalCheckRefreshStarted = true
+      }
+    }
+
+    LaunchedEffect(step, nodeApprovalCheckRequested, nodeApprovalCheckRefreshStarted, nodesDevicesRefreshing) {
+      if (
+        !nodeApprovalCheckShouldClearUnobservedRefresh(
+          step = step,
+          checkRequested = nodeApprovalCheckRequested,
+          refreshStarted = nodeApprovalCheckRefreshStarted,
+          nodesDevicesRefreshing = nodesDevicesRefreshing,
+        )
+      ) {
+        return@LaunchedEffect
+      }
+      delay(NODE_APPROVAL_REFRESH_OBSERVE_TIMEOUT_MS)
+      if (
+        nodeApprovalCheckShouldClearUnobservedRefresh(
+          step = step,
+          checkRequested = nodeApprovalCheckRequested,
+          refreshStarted = nodeApprovalCheckRefreshStarted,
+          nodesDevicesRefreshing = nodesDevicesRefreshing,
+        )
+      ) {
+        nodeApprovalCheckRequested = false
       }
     }
 
@@ -2528,6 +2553,17 @@ internal fun nodeApprovalCheckingInProgress(
   refreshStarted: Boolean,
   nodesDevicesRefreshing: Boolean,
 ): Boolean = checkRequested && (!refreshStarted || nodesDevicesRefreshing)
+
+internal fun nodeApprovalCheckShouldClearUnobservedRefresh(
+  step: OnboardingStep,
+  checkRequested: Boolean,
+  refreshStarted: Boolean,
+  nodesDevicesRefreshing: Boolean,
+): Boolean =
+  step == OnboardingStep.NodeApproval &&
+    checkRequested &&
+    !refreshStarted &&
+    !nodesDevicesRefreshing
 
 internal fun nodeApprovalCheckCanContinue(
   checkRequested: Boolean,
